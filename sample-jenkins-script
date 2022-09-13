@@ -1,0 +1,33 @@
+pipeline {
+    agent any
+    tools{
+        maven 'maven_3_8_6'
+    }
+    stages{
+        stage('Build Maven'){
+            steps{
+                cleanWs()
+                checkout([$class: 'GitSCM', branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/Amarkul/eurekaserver']]])
+                sh 'mvn clean install'
+            }
+        }
+        stage('Build Docker Image'){
+            steps{
+                script{
+                    sh 'docker build -t eureka-server-1.0.0 .'
+                }
+            }
+        }
+        stage('Post Image to DOckerHub'){
+            steps{
+               script{
+                   withCredentials([string(credentialsId: 'dockerhubpwd', variable: 'dockerhubpwd')]) {
+                       sh 'docker login -u amarkul10 -p ${dockerhubpwd}'
+                   }
+                   sh 'docker tag eureka-server-1.0.0 amarkul10/eureka-server-1.0.0'
+                   sh 'docker push amarkul10/eureka-server-1.0.0'
+               } 
+            }
+        }
+    }
+}
