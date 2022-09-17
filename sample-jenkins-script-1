@@ -1,0 +1,42 @@
+pipeline{
+    agent any
+    
+    tools{
+         maven 'maven_3_8_6'
+    }
+    
+    environment{
+        registry = "354140445506.dkr.ecr.us-east-1.amazonaws.com/${SERVICE}"    
+    }
+    
+    stages {
+        stage('Checkout'){
+            steps{
+                cleanWs()
+                checkout([$class: 'GitSCM', branches: [[name: BRANCH]], extensions: [], userRemoteConfigs: [[url: SERVICE_REPO]]])
+            }
+        }
+        
+        stage('Build Jar') {
+            steps{
+                sh "mvn clean install"
+            }
+        }
+        
+        stage("Build Image") {
+            steps {
+                script {
+                    currentBuild.displayName = "#${SERVICE}-${BRANCH}"
+                    docker.build registry
+                }
+            }
+        }
+        
+        stage("Push into ECR") {
+            steps {
+                sh "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 354140445506.dkr.ecr.us-east-1.amazonaws.com"
+                sh "docker push 354140445506.dkr.ecr.us-east-1.amazonaws.com/${SERVICE}:latest"
+            }
+        }
+    }
+}
